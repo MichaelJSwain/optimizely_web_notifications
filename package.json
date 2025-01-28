@@ -1,0 +1,14 @@
+{
+  "name": "optimizely-web-notifications",
+  "version": "1.0.0",
+  "description": "using optimizely webhooks to send relevant notifications based on updates to the Web project",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}
