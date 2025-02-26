@@ -1,2 +1,4 @@
 .env
 node_modules
+pseudo.md
+sendNotifcation.js
