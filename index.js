@@ -1,6 +1,6 @@
 const { default: axios } = require("axios");
 require('dotenv').config();
-const { OPTLY_TOKEN, TH_PROD_PROJECT_ID } = process.env;
+const { OPTLY_TOKEN, TH_PROD_PROJECT_ID, TH_QA_AUDIENCE_ID } = process.env;
 
 const db = {
     runningExperimentIDs: [5092054213066752, 5013064228012032, 4734509292191744, 4697687396712448],
@@ -38,7 +38,6 @@ const persistExp = (exp_id) => {
 }
 
 const checkIsRunningForUsers = async (experiments) => {
-    const qaAudienceId = 25974863091;
     const runningTests = [];
     for (exp of experiments) {
         if (exp.id) {
@@ -53,7 +52,7 @@ const checkIsRunningForUsers = async (experiments) => {
               const isRunning = await fetch(`https://api.optimizely.com/v2/experiments/${exp.id}`, options)
                 .then(res => res.json())
                 .then(res => {
-                    if (!res.audience_conditions.includes(qaAudienceId)) {
+                    if (!res.audience_conditions.includes(TH_QA_AUDIENCE_ID)) {
                         return true;
                     } else {
                         return false;
