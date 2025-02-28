@@ -1,4 +1,8 @@
 .env
 node_modules
 pseudo.md
+pseudo2.md
 sendNotifcation.js
+test.js
+getTimestamp.js
+index2.js

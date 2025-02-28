@@ -1,6 +1,6 @@
 const { default: axios } = require("axios");
 require('dotenv').config();
-const { OPTLY_TOKEN, TH_PROD_PROJECT_ID, TH_QA_AUDIENCE_ID } = process.env;
+const { OPTLY_TOKEN, TH_PROD_PROJECT_ID, TH_QA_AUDIENCE_ID, MONGODB_URI } = process.env;
 
 const db = {
     runningExperimentIDs: [5092054213066752, 5013064228012032, 4734509292191744, 4697687396712448],
@@ -52,7 +52,9 @@ const checkIsRunningForUsers = async (experiments) => {
               const isRunning = await fetch(`https://api.optimizely.com/v2/experiments/${exp.id}`, options)
                 .then(res => res.json())
                 .then(res => {
-                    if (!res.audience_conditions.includes(TH_QA_AUDIENCE_ID)) {
+                    if (!res.audience_conditions.includes(TH_QA_AUDIENCE_ID) || 
+                        (!res.audience_conditions.includes("and") && 
+                        res.audience_conditions.includes(TH_QA_AUDIENCE_ID))) {
                         return true;
                     } else {
                         return false;
@@ -69,13 +71,14 @@ const checkIsRunningForUsers = async (experiments) => {
         }
 
     }
+    console.log(runningTests);
     return runningTests;
 }
 
 const checkOptimizely = async () => {
     const runningTests = await fetchRunningTests(); 
     const runningForUsers = await checkIsRunningForUsers(runningTests);  
-    console.log(runningForUsers);
+    // console.log(runningForUsers);
 }
 
 
@@ -83,7 +86,7 @@ const checkOptimizely = async () => {
 
 // const hourInMilliseconds = 3600000;
 const interval = 10000;
-setInterval(() => {
+// setInterval(() => {
 //     console.log("checking Optly project");
-    checkOptimizely()
-}, interval);
+    // checkOptimizely()
+// }, interval);
