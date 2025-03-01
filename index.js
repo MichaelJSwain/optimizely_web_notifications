@@ -1,5 +1,6 @@
+const { default: axios } = require("axios");
 require('dotenv').config();
-const {OPTLY_TOKEN, TH_QA_AUDIENCE_ID} = process.env;
+const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT} = process.env;
 
 const optimizelyRequest = async (endpoint, method, body = false) => {
     const options = {
@@ -19,7 +20,7 @@ const optimizelyRequest = async (endpoint, method, body = false) => {
 
 const getTimestamps = () => {
     const endTimestamp = Date.now();
-    const startTimestamp = Date.now() - 9600000;
+    const startTimestamp = Date.now() - 3600000;
 
     const endTimestampISO = new Date(endTimestamp).toISOString();
     const startTimestampISO = new Date(startTimestamp).toISOString();
@@ -54,9 +55,8 @@ const checkForUpdatedExperimentStatus = (changeHistory) => {
     return experimentIDs;
 }
 
-const checkChangeHistory = async () => {
-    const {start_time, end_time} = getTimestamps();
-    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=26081140005&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
+const checkChangeHistory = async (start_time, end_time) => {
+    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=${TH_QA_PROJECT_ID}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
     return changeHistory; 
 }
 
@@ -70,9 +70,9 @@ const checkTargeting = async (updatedExperiments) => {
         let isRunningInQAMode;
         if (foundExperiment) {
             isRunningInQAMode = false;
-            if (!foundExperiment.audience_conditions.includes(TH_QA_AUDIENCE_ID) || 
+            if (!foundExperiment.audience_conditions.includes(TH_QA_QA_AUDIENCE_ID) || 
                 (!foundExperiment.audience_conditions.includes("and") && 
-                foundExperiment.audience_conditions.includes(TH_QA_AUDIENCE_ID))) {
+                foundExperiment.audience_conditions.includes(TH_QA_QA_AUDIENCE_ID))) {
                 
                 // check page targeting too
                 if (foundExperiment.page_ids.length) {
@@ -96,14 +96,120 @@ const checkTargeting = async (updatedExperiments) => {
     return launchedExperiments;
 }
 
+const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
+    let message = 'Update(s) to Optimizely Web (client-side) experiments:'
+    let message2 = [
+        {
+        type: "Container",
+        items: [
+            {
+                type: "TextBlock",
+                text: "Optimizely client-side updates",
+                weight: "bolder",
+                size: "Large"
+            },
+            {
+                type: "TextBlock",
+                text: `${start_time} - ${end_time}`,
+                weight: "bolder",
+                size: "small"
+              }
+        ]
+        },  
+
+        ];
+
+    experimentChanges.forEach(change => {
+        const factSet = {
+            type: "Container",
+            items: [
+              {
+                type: "FactSet",
+                facts: [
+                  {
+                    title: "Experiment name:",
+                    value: `${change.exp_name}`
+                  },
+                  {
+                    title: "Status:",
+                    value: `${change.exp_status}`
+                  }
+                ]
+              }
+            ]
+          }
+          message2.push(factSet);
+        })
+    // const jsonMessage = JSON.stringify(message2);
+    return message2;
+}
+
+const sendNotification = (message) => {
+    const reqbody = {
+        "type":"message",
+        "attachments":[
+           {
+              "contentType":"application/vnd.microsoft.card.adaptive",
+              "contentUrl":null,
+              "content":{
+                 "$schema":"http://adaptivecards.io/schemas/adaptive-card.json",
+                 "type":"AdaptiveCard",
+                 "version":"1.4",
+                 "body": message
+                 
+              }
+           }
+        ]
+     };
+     axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
+    .then(function (response) {
+        console.log(response);
+    })
+    .catch(function (error) {
+        console.log(error);
+    });
+}
+
 const main = async () => {
-    const changeHistory = await checkChangeHistory();
+    const {start_time, end_time} = getTimestamps();
+    const changeHistory = await checkChangeHistory(start_time, end_time);
     if (changeHistory.length) {
         const updatedExperiments = checkForUpdatedExperimentStatus(changeHistory);
         if (updatedExperiments) {
             const result = await checkTargeting(updatedExperiments);
-            console.log(result);
+            const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+            // console.log(notificationMessage);
+            sendNotification(notificationMessage);
         }
+    } else {
+        console.log("no changes made in the last hour");
     }
 }
 main();
+
+
+// for (let i = 0; i < 5; i++) {
+//     const factset = {
+//         "type": "Container",
+//         "items": [
+//           {
+//             "type": "FactSet",
+//             "facts": [
+//               {
+//                 "title": "Experiment name:",
+//                 "value": "exp2"
+//               },
+//               {
+//                 "title": "Status:",
+//                 "value": "paused"
+//               },
+//               {
+//                 "title": "Project",
+//                 "value": "TH"
+//               }
+//             ]
+//           }
+//         ]
+//       }
+      
+// }
