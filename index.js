@@ -1,6 +1,7 @@
 const { default: axios } = require("axios");
+const { response } = require("express");
 require('dotenv').config();
-const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT} = process.env;
+const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT} = process.env;
 
 const optimizelyRequest = async (endpoint, method, body = false) => {
     const options = {
@@ -31,7 +32,11 @@ const getTimestamps = () => {
     }
 }
 
-const checkForUpdatedExperimentStatus = (changeHistory) => {
+const getProjects = () => {
+    return [TH_QA_PROJECT_ID, CK_QA_PROJECT_ID]
+}
+
+const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
     const experimentIDs = {};
 
     // changeHistory.forEach(item => {
@@ -46,7 +51,8 @@ const checkForUpdatedExperimentStatus = (changeHistory) => {
                     experimentIDs[item.entity.id] = {
                         exp_id: item.entity.id,
                         exp_name: item.entity.name,
-                        exp_status: change.after
+                        exp_status: change.after,
+                        project: project_id == 14193350179 ? "TH" : "CK"
                     }
                 }
             }
@@ -55,12 +61,12 @@ const checkForUpdatedExperimentStatus = (changeHistory) => {
     return experimentIDs;
 }
 
-const checkChangeHistory = async (start_time, end_time) => {
-    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=${TH_QA_PROJECT_ID}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
+const checkChangeHistory = async (project_id, start_time, end_time) => {
+    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=${project_id}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
     return changeHistory; 
 }
 
-const checkTargeting = async (updatedExperiments) => {
+const checkTargeting = async (project_id, updatedExperiments) => {
     const launchedExperiments = [];
     const keys = Object.keys(updatedExperiments);
 
@@ -70,9 +76,9 @@ const checkTargeting = async (updatedExperiments) => {
         let isRunningInQAMode;
         if (foundExperiment) {
             isRunningInQAMode = false;
-            if (!foundExperiment.audience_conditions.includes(TH_QA_QA_AUDIENCE_ID) || 
+            if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
                 (!foundExperiment.audience_conditions.includes("and") && 
-                foundExperiment.audience_conditions.includes(TH_QA_QA_AUDIENCE_ID))) {
+                foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID))) {
                 
                 // check page targeting too
                 if (foundExperiment.page_ids.length) {
@@ -97,6 +103,7 @@ const checkTargeting = async (updatedExperiments) => {
 }
 
 const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
+    console.log(experimentChanges);
     let message = 'Update(s) to Optimizely Web (client-side) experiments:'
     let message2 = [
         {
@@ -133,6 +140,10 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
                   {
                     title: "Status:",
                     value: `${change.exp_status}`
+                  },
+                  {
+                    title: "Project:",
+                    value: `${change.project}`
                   }
                 ]
               }
@@ -172,18 +183,28 @@ const sendNotification = (message) => {
 
 const main = async () => {
     const {start_time, end_time} = getTimestamps();
-    const changeHistory = await checkChangeHistory(start_time, end_time);
-    if (changeHistory.length) {
-        const updatedExperiments = checkForUpdatedExperimentStatus(changeHistory);
-        if (updatedExperiments) {
-            const result = await checkTargeting(updatedExperiments);
-            const notificationMessage = buildNotificationMessage(result, start_time, end_time);
-            // console.log(notificationMessage);
-            sendNotification(notificationMessage);
+    const project_ids = getProjects();
+    let result = [];
+
+    for (project_id of project_ids) {
+        const changeHistory = await checkChangeHistory(project_id, start_time, end_time);
+        // console.log("change history for ", project_id, changeHistory);
+        if (changeHistory.length) {
+            const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
+            
+            if (updatedExperiments) {
+                const response = await checkTargeting(project_id, updatedExperiments);
+                result = [...result, ...response];
+                // const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+                // console.log(notificationMessage);
+                // sendNotification(notificationMessage);
+            }
+        } else {
+            console.log("no changes made in the last hour");
         }
-    } else {
-        console.log("no changes made in the last hour");
     }
+    const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+    sendNotification(notificationMessage);
 }
 main();
 
