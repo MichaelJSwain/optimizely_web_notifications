@@ -89,6 +89,30 @@ const checkTrafficAllocation = (totalTrafficAllocation = 10000, variants) => {
     return isEqual;
 }
 
+const checkCustomGoals = (experiment) => {
+    
+    let customGoalsInSharedJS;
+
+    if (experiment.changes) {
+        const sharedJS = experiment.changes.some(c => c.type === "custom_code");
+
+        if (sharedJS) {
+            customGoalsInSharedJS = true;
+        } else {
+            customGoalsInSharedJS = false;
+        }
+        // experiment.changes.forEach(sharedChange => {
+        //     console.log("shared change = ", sharedChange.value);
+            
+        //     customGoalsFound = sharedChange.type === "custom_code" && sharedChange.value.includes('sendAnalyticsEvents') ? true : false
+        //     `
+        // })
+    }
+
+
+    console.log(customGoalsInSharedJS)
+}
+
 const checkTargeting = async (project_id, updatedExperiments) => {
     const launchedExperiments = [];
     const keys = Object.keys(updatedExperiments);
@@ -100,6 +124,8 @@ const checkTargeting = async (project_id, updatedExperiments) => {
 
             const isEqualTrafficAllocation = checkTrafficAllocation(10000, foundExperiment.variations);
             updatedExperiments[key].isEqualTrafficAllocation = isEqualTrafficAllocation;
+
+            const foundCustomGoals = checkCustomGoals(foundExperiment);
 
             isRunningInQAMode = false;
             if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
@@ -240,7 +266,7 @@ const main = async () => {
         console.log("no experiments in production")
     }
     
-    sendNotification(notificationMessage);
+    // sendNotification(notificationMessage);
 }
 main();
 
