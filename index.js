@@ -1,14 +1,9 @@
 const { default: axios } = require("axios");
+const { response } = require("express");
 require('dotenv').config();
-const { OPTLY_TOKEN, TH_PROD_PROJECT_ID, TH_QA_AUDIENCE_ID, MONGODB_URI } = process.env;
+const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT} = process.env;
 
-const db = {
-    runningExperimentIDs: [5092054213066752, 5013064228012032, 4734509292191744, 4697687396712448],
-    pausedExperimentIDs: [],
-    archivedExperimentIDs: []
-}
-
-const fetchRunningTests = async () => {
+const optimizelyRequest = async (endpoint, method, body = false) => {
     const options = {
         method: 'GET',
         headers: {
@@ -17,76 +12,225 @@ const fetchRunningTests = async () => {
         }
       };
       
-      const tests = await fetch(`https://api.optimizely.com/v2/search?per_page=50&page=1&query=-&project_id=${TH_PROD_PROJECT_ID}&type=experiment&expand=&archived=false&fullsearch=false&status=running`, options)
+      const result = await fetch(endpoint, options)
         .then(res => res.json())
-        .then(res => {
-            const exps = []
-            res.forEach(exp => {
-                const isTracked = db.runningExperimentIDs.some(id => id == exp.id);
-                if (!isTracked) {
-                    exps.push(exp);
-                }
-            });
-            return exps;
-        })
+        .then(res => res)
         .catch(err => console.error(err));
-        return tests
+      return result;
 }
 
-const persistExp = (exp_id) => {
-    db.runningExperimentIDs.push(exp_id);
-}
+const getTimestamps = () => {
+    const endTimestamp = Date.now();
+    const startTimestamp = Date.now() - 3600000;
 
-const checkIsRunningForUsers = async (experiments) => {
-    const runningTests = [];
-    for (exp of experiments) {
-        if (exp.id) {
-            const options = {
-                method: 'GET',
-                headers: {
-                  accept: 'application/json',
-                  authorization: OPTLY_TOKEN
-                }
-              };
-              
-              const isRunning = await fetch(`https://api.optimizely.com/v2/experiments/${exp.id}`, options)
-                .then(res => res.json())
-                .then(res => {
-                    if (!res.audience_conditions.includes(TH_QA_AUDIENCE_ID) || 
-                        (!res.audience_conditions.includes("and") && 
-                        res.audience_conditions.includes(TH_QA_AUDIENCE_ID))) {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                })
-                .catch(err => console.error(err));
+    const endTimestampISO = new Date(endTimestamp).toISOString();
+    const startTimestampISO = new Date(startTimestamp).toISOString();
 
-                if (isRunning) {
-                    runningTests.push(exp);
-                    runningTests.push(isRunning);
-                    persistExp(exp.id);
-                }
-                
-        }
-
+    return {
+        start_time: startTimestampISO,
+        end_time: endTimestampISO
     }
-    console.log(runningTests);
-    return runningTests;
 }
 
-const checkOptimizely = async () => {
-    const runningTests = await fetchRunningTests(); 
-    const runningForUsers = await checkIsRunningForUsers(runningTests);  
-    // console.log(runningForUsers);
+const getProjects = () => {
+    return [TH_QA_PROJECT_ID, CK_QA_PROJECT_ID]
 }
 
+const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
+    const experimentIDs = {};
+
+    // changeHistory.forEach(item => {
+    //     console.log(item);
+    // })
+
+    for (item of changeHistory) {
+        if (item.changes) {
+            for (change of item.changes) {
+                if (change.property && change.property === "status" && !experimentIDs[item.entity.id]) {
+                    
+                    experimentIDs[item.entity.id] = {
+                        exp_id: item.entity.id,
+                        exp_name: item.entity.name,
+                        exp_status: change.after,
+                        project: project_id == 14193350179 ? "TH" : "CK"
+                    }
+                }
+            }
+        }
+    }
+    return experimentIDs;
+}
+
+const checkChangeHistory = async (project_id, start_time, end_time) => {
+    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=${project_id}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
+    return changeHistory; 
+}
+
+const checkTargeting = async (project_id, updatedExperiments) => {
+    const launchedExperiments = [];
+    const keys = Object.keys(updatedExperiments);
+
+    for (const key of keys) {
+        console.log(key);
+        const foundExperiment = await optimizelyRequest(`https://api.optimizely.com/v2/experiments/${updatedExperiments[key].exp_id}`);
+        let isRunningInQAMode;
+        if (foundExperiment) {
+            isRunningInQAMode = false;
+            if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
+                (!foundExperiment.audience_conditions.includes("and") && 
+                foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID))) {
+                
+                // check page targeting too
+                if (foundExperiment.page_ids.length) {
+                    const page_id = foundExperiment.page_ids[0];
+                    const foundPage = await optimizelyRequest(`https://api.optimizely.com/v2/pages/${page_id}`);
+                    if (foundPage && foundPage.conditions && foundPage.conditions.includes("devtestp")) {
+                        isRunningInQAMode = true;
+                    } else {
+                        isRunningInQAMode = false;
+                    }
+                }
+            } else {
+                isRunningInQAMode = true;
+            }
+
+            if (!isRunningInQAMode) {
+                launchedExperiments.push(updatedExperiments[key]);
+            }
+        }
+    }
+    return launchedExperiments;
+}
+
+const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
+    console.log(experimentChanges);
+    let message = 'Update(s) to Optimizely Web (client-side) experiments:'
+    let message2 = [
+        {
+        type: "Container",
+        items: [
+            {
+                type: "TextBlock",
+                text: "Optimizely client-side updates",
+                weight: "bolder",
+                size: "Large"
+            },
+            {
+                type: "TextBlock",
+                text: `${start_time} - ${end_time}`,
+                weight: "bolder",
+                size: "small"
+              }
+        ]
+        },  
+
+        ];
+
+    experimentChanges.forEach(change => {
+        const factSet = {
+            type: "Container",
+            items: [
+              {
+                type: "FactSet",
+                facts: [
+                  {
+                    title: "Experiment name:",
+                    value: `${change.exp_name}`
+                  },
+                  {
+                    title: "Status:",
+                    value: `${change.exp_status}`
+                  },
+                  {
+                    title: "Project:",
+                    value: `${change.project}`
+                  }
+                ]
+              }
+            ]
+          }
+          message2.push(factSet);
+        })
+    // const jsonMessage = JSON.stringify(message2);
+    return message2;
+}
+
+const sendNotification = (message) => {
+    const reqbody = {
+        "type":"message",
+        "attachments":[
+           {
+              "contentType":"application/vnd.microsoft.card.adaptive",
+              "contentUrl":null,
+              "content":{
+                 "$schema":"http://adaptivecards.io/schemas/adaptive-card.json",
+                 "type":"AdaptiveCard",
+                 "version":"1.4",
+                 "body": message
+                 
+              }
+           }
+        ]
+     };
+     axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
+    .then(function (response) {
+        console.log(response);
+    })
+    .catch(function (error) {
+        console.log(error);
+    });
+}
+
+const main = async () => {
+    const {start_time, end_time} = getTimestamps();
+    const project_ids = getProjects();
+    let result = [];
+
+    for (project_id of project_ids) {
+        const changeHistory = await checkChangeHistory(project_id, start_time, end_time);
+        // console.log("change history for ", project_id, changeHistory);
+        if (changeHistory.length) {
+            const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
+            
+            if (updatedExperiments) {
+                const response = await checkTargeting(project_id, updatedExperiments);
+                result = [...result, ...response];
+                // const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+                // console.log(notificationMessage);
+                // sendNotification(notificationMessage);
+            }
+        } else {
+            console.log("no changes made in the last hour");
+        }
+    }
+    const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+    sendNotification(notificationMessage);
+}
+main();
 
 
-
-// const hourInMilliseconds = 3600000;
-const interval = 10000;
-// setInterval(() => {
-//     console.log("checking Optly project");
-    // checkOptimizely()
-// }, interval);
+// for (let i = 0; i < 5; i++) {
+//     const factset = {
+//         "type": "Container",
+//         "items": [
+//           {
+//             "type": "FactSet",
+//             "facts": [
+//               {
+//                 "title": "Experiment name:",
+//                 "value": "exp2"
+//               },
+//               {
+//                 "title": "Status:",
+//                 "value": "paused"
+//               },
+//               {
+//                 "title": "Project",
+//                 "value": "TH"
+//               }
+//             ]
+//           }
+//         ]
+//       }
+      
+// }
