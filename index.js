@@ -66,15 +66,41 @@ const checkChangeHistory = async (project_id, start_time, end_time) => {
     return changeHistory; 
 }
 
+const checkTrafficAllocation = (totalTrafficAllocation = 10000, variants) => {
+    // calculate equal per variant allocation for equal traffic
+    const splitPerVariant = Math.trunc(totalTrafficAllocation / variants.length);
+    
+    let remainder;
+    if (splitPerVariant * variants.length == totalTrafficAllocation) {
+        remainder = false;
+    } else {
+        remainder = totalTrafficAllocation - (splitPerVariant * (variants.length - 1));
+    }
+    
+    const trafficAllocation = remainder ? [splitPerVariant, remainder] : [splitPerVariant];
+    
+    const isEqual = variants.every(v => {
+        if (v.weight == trafficAllocation[0] || v.weight == trafficAllocation[1]) {
+            return true;
+        } else {
+            return false;
+        }
+    });
+    return isEqual;
+}
+
 const checkTargeting = async (project_id, updatedExperiments) => {
     const launchedExperiments = [];
     const keys = Object.keys(updatedExperiments);
 
     for (const key of keys) {
-        console.log(key);
         const foundExperiment = await optimizelyRequest(`https://api.optimizely.com/v2/experiments/${updatedExperiments[key].exp_id}`);
         let isRunningInQAMode;
         if (foundExperiment) {
+
+            const isEqualTrafficAllocation = checkTrafficAllocation(10000, foundExperiment.variations);
+            updatedExperiments[key].isEqualTrafficAllocation = isEqualTrafficAllocation;
+
             isRunningInQAMode = false;
             if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
                 (!foundExperiment.audience_conditions.includes("and") && 
@@ -103,7 +129,6 @@ const checkTargeting = async (project_id, updatedExperiments) => {
 }
 
 const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
-    console.log(experimentChanges);
     let message = 'Update(s) to Optimizely Web (client-side) experiments:'
     let message2 = [
         {
@@ -142,6 +167,10 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
                     value: `${change.exp_status}`
                   },
                   {
+                    title: "equal traffic allocation:",
+                    value: change.isEqualTrafficAllocation ? change.isEqualTrafficAllocation :`⚠️ ${change.isEqualTrafficAllocation}`
+                },
+                  {
                     title: "Project:",
                     value: `${change.project}`
                   }
@@ -151,7 +180,6 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
           }
           message2.push(factSet);
         })
-    // const jsonMessage = JSON.stringify(message2);
     return message2;
 }
 
@@ -185,16 +213,18 @@ const main = async () => {
     const {start_time, end_time} = getTimestamps();
     const project_ids = getProjects();
     let result = [];
+    let notificationMessage;
 
     for (project_id of project_ids) {
         const changeHistory = await checkChangeHistory(project_id, start_time, end_time);
-        // console.log("change history for ", project_id, changeHistory);
         if (changeHistory.length) {
             const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
             
             if (updatedExperiments) {
                 const response = await checkTargeting(project_id, updatedExperiments);
-                result = [...result, ...response];
+                if (response.length) {
+                    result = [...result, ...response];
+                }
                 // const notificationMessage = buildNotificationMessage(result, start_time, end_time);
                 // console.log(notificationMessage);
                 // sendNotification(notificationMessage);
@@ -203,7 +233,13 @@ const main = async () => {
             console.log("no changes made in the last hour");
         }
     }
-    const notificationMessage = buildNotificationMessage(result, start_time, end_time);
+    if (result.length) {
+        console.log("building notification message");
+        notificationMessage = buildNotificationMessage(result, start_time, end_time);
+    } else {
+        console.log("no experiments in production")
+    }
+    
     sendNotification(notificationMessage);
 }
 main();
