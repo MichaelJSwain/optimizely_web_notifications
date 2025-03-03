@@ -166,7 +166,11 @@ const checkTargeting = async (project_id, updatedExperiments) => {
 }
 
 const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
-    let message = 'Update(s) to Optimizely Web (client-side) experiments:'
+    let message = 'Update(s) to Optimizely Web (client-side) experiments:';
+    
+    const startTimeParsed = `${new Date(start_time).toString().split("GMT")[0]} CET`;
+    const endTimeParsed = `${new Date(end_time).toString().split("GMT")[0]} CET`;
+
     let message2 = [
         {
         type: "Container",
@@ -179,12 +183,13 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
             },
             {
                 type: "TextBlock",
-                text: `${start_time} - ${end_time}`,
+                text: `${startTimeParsed} - ${endTimeParsed}`,
                 weight: "bolder",
                 size: "small"
               },
               {
                 'type': 'TextBlock',
+                'text': ' ',
                 'separator': true,
                 'isSubtle': true,
                 'size': 'small'
@@ -225,6 +230,7 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
               },
               {
                 'type': 'TextBlock',
+                'text': ' ',
                 'separator': true,
                 'isSubtle': true,
                 'size': 'small'
