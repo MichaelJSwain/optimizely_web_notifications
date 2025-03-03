@@ -91,26 +91,36 @@ const checkTrafficAllocation = (totalTrafficAllocation = 10000, variants) => {
 
 const checkCustomGoals = (experiment) => {
     
-    let customGoalsInSharedJS;
+    let customGoalsShared = false;
+    let customGoalsVariant = false;
 
+    
+    // check for call to optimizely.sendAnalyticsEvents in the shared code
     if (experiment.changes) {
-        const sharedJS = experiment.changes.some(c => c.type === "custom_code");
-
-        if (sharedJS) {
-            customGoalsInSharedJS = true;
-        } else {
-            customGoalsInSharedJS = false;
+        // const sharedJS = experiment.changes.some(c => c.type === "custom_code");
+        const sharedJS = experiment.changes.find(c => c.type === "custom_code");
+        
+        if (sharedJS && sharedJS.value.includes("optimizely.sendAnalyticsEvents")) {
+            customGoalsShared = true;
         }
-        // experiment.changes.forEach(sharedChange => {
-        //     console.log("shared change = ", sharedChange.value);
-            
-        //     customGoalsFound = sharedChange.type === "custom_code" && sharedChange.value.includes('sendAnalyticsEvents') ? true : false
-        //     `
-        // })
     }
 
+    // check for call to optimizely.sendAnalyticsEvents in the variant code
+    if (experiment.variations) {
+        experiment.variations.forEach(variation => {
+            if (variation.actions && variation.actions.length) {
+                variation.actions.forEach(action => {
+                    action.changes.find(change => {
+                        if (change.type === "custom_code" && change.value.includes("optimizely.sendAnalyticsEvents")) {
+                            customGoalsVariant = true;
+                        }
+                    })
+                })
+            }
+        });
+    }
 
-    console.log(customGoalsInSharedJS)
+    return customGoalsShared || customGoalsVariant ? true : false;
 }
 
 const checkTargeting = async (project_id, updatedExperiments) => {
@@ -126,6 +136,7 @@ const checkTargeting = async (project_id, updatedExperiments) => {
             updatedExperiments[key].isEqualTrafficAllocation = isEqualTrafficAllocation;
 
             const foundCustomGoals = checkCustomGoals(foundExperiment);
+            updatedExperiments[key].hasCustomGoals = foundCustomGoals;
 
             isRunningInQAMode = false;
             if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
@@ -171,7 +182,13 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
                 text: `${start_time} - ${end_time}`,
                 weight: "bolder",
                 size: "small"
-              }
+              },
+              {
+                'type': 'TextBlock',
+                'separator': true,
+                'isSubtle': true,
+                'size': 'small'
+            }
         ]
         },  
 
@@ -193,15 +210,25 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
                     value: `${change.exp_status}`
                   },
                   {
-                    title: "equal traffic allocation:",
+                    title: "Equal traffic allocation:",
                     value: change.isEqualTrafficAllocation ? change.isEqualTrafficAllocation :`⚠️ ${change.isEqualTrafficAllocation}`
+                },
+                {
+                    title: "Custom goals found:",
+                    value: change.hasCustomGoals ? change.hasCustomGoals :`⚠️ ${change.hasCustomGoals}`
                 },
                   {
                     title: "Project:",
                     value: `${change.project}`
                   }
                 ]
-              }
+              },
+              {
+                'type': 'TextBlock',
+                'separator': true,
+                'isSubtle': true,
+                'size': 'small'
+            }
             ]
           }
           message2.push(factSet);
@@ -262,11 +289,14 @@ const main = async () => {
     if (result.length) {
         console.log("building notification message");
         notificationMessage = buildNotificationMessage(result, start_time, end_time);
+        // console.log(notificationMessage[1].items[0].facts);
+        // console.log(notificationMessage[2].items[0].facts);
+        // console.log(notificationMessage[3].items[0].facts);
     } else {
         console.log("no experiments in production")
     }
     
-    // sendNotification(notificationMessage);
+    sendNotification(notificationMessage);
 }
 main();
 
