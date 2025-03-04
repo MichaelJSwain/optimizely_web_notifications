@@ -1,7 +1,7 @@
 const { default: axios } = require("axios");
 const { response } = require("express");
 require('dotenv').config();
-const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT} = process.env;
+const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT} = process.env;
 
 const optimizelyRequest = async (endpoint, method, body = false) => {
     const options = {
@@ -32,16 +32,13 @@ const getTimestamps = () => {
     }
 }
 
-const getProjects = () => {
-    return [TH_QA_PROJECT_ID, CK_QA_PROJECT_ID]
+const getProjectsIDs = () => {
+    const projectIDs = [TH_QA_PROJECT_ID, CK_QA_PROJECT_ID]
+    return projectIDs;
 }
 
 const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
     const experimentIDs = {};
-
-    // changeHistory.forEach(item => {
-    //     console.log(item);
-    // })
 
     for (item of changeHistory) {
         if (item.changes) {
@@ -90,14 +87,11 @@ const checkTrafficAllocation = (totalTrafficAllocation = 10000, variants) => {
 }
 
 const checkCustomGoals = (experiment) => {
-    
     let customGoalsShared = false;
     let customGoalsVariant = false;
 
-    
     // check for call to optimizely.sendAnalyticsEvents in the shared code
     if (experiment.changes) {
-        // const sharedJS = experiment.changes.some(c => c.type === "custom_code");
         const sharedJS = experiment.changes.find(c => c.type === "custom_code");
         
         if (sharedJS && sharedJS.value.includes("optimizely.sendAnalyticsEvents")) {
@@ -259,7 +253,7 @@ const sendNotification = (message) => {
            }
         ]
      };
-     axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
+     axios.post(TEAMS_CHANNEL_ENDPOINT, reqbody)
     .then(function (response) {
         console.log(response);
     })
@@ -270,7 +264,7 @@ const sendNotification = (message) => {
 
 const main = async () => {
     const {start_time, end_time} = getTimestamps();
-    const project_ids = getProjects();
+    const project_ids = getProjectsIDs();
     let result = [];
     let notificationMessage;
 
@@ -295,9 +289,6 @@ const main = async () => {
     if (result.length) {
         console.log("building notification message");
         notificationMessage = buildNotificationMessage(result, start_time, end_time);
-        // console.log(notificationMessage[1].items[0].facts);
-        // console.log(notificationMessage[2].items[0].facts);
-        // console.log(notificationMessage[3].items[0].facts);
     } else {
         console.log("no experiments in production")
     }
@@ -305,30 +296,3 @@ const main = async () => {
     sendNotification(notificationMessage);
 }
 main();
-
-
-// for (let i = 0; i < 5; i++) {
-//     const factset = {
-//         "type": "Container",
-//         "items": [
-//           {
-//             "type": "FactSet",
-//             "facts": [
-//               {
-//                 "title": "Experiment name:",
-//                 "value": "exp2"
-//               },
-//               {
-//                 "title": "Status:",
-//                 "value": "paused"
-//               },
-//               {
-//                 "title": "Project",
-//                 "value": "TH"
-//               }
-//             ]
-//           }
-//         ]
-//       }
-      
-// }
