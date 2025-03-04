@@ -12,11 +12,14 @@ const optimizelyRequest = async (endpoint) => {
         }
       };
       
-      const result = await fetch(endpoint, options)
+      const response = await fetch(endpoint, options)
         .then(res => res.json())
         .then(res => res)
-        .catch(err => console.error(err));
-      return result;
+        .catch(err => {
+            console.log("⚠️ Optimizely request error: ", err.message);
+            return false;
+        });
+      return response;
 }
 
 const getTimestamps = () => {
@@ -273,17 +276,19 @@ const main = async () => {
 
     for (project_id of project_ids) {
         const changeHistory = await checkChangeHistory(project_id, start_time, end_time);
-        if (changeHistory.length) {
-            const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
-            
-            if (updatedExperiments) {
-                const response = await checkTargeting(project_id, updatedExperiments);
-                if (response.length) {
-                    result = [...result, ...response];
+        if (changeHistory) {
+            if (changeHistory.length) {
+                const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
+                
+                if (updatedExperiments) {
+                    const response = await checkTargeting(project_id, updatedExperiments);
+                    if (response.length) {
+                        result = [...result, ...response];
+                    }
                 }
+            } else {
+                console.log("no changes made in the last hour");
             }
-        } else {
-            console.log("no changes made in the last hour");
         }
     }
     if (result.length) {
