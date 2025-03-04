@@ -172,7 +172,7 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
     const startTimeParsed = `${new Date(start_time).toString().split("GMT")[0]} CET`;
     const endTimeParsed = `${new Date(end_time).toString().split("GMT")[0]} CET`;
 
-    let message2 = [
+    let message = [
         {
         type: "Container",
         items: [
@@ -238,9 +238,9 @@ const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
             }
             ]
           }
-          message2.push(factSet);
+          message.push(factSet);
         })
-    return message2;
+    return message;
 }
 
 const sendNotification = (message) => {
