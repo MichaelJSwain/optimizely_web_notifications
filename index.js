@@ -3,7 +3,7 @@ const { response } = require("express");
 require('dotenv').config();
 const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT} = process.env;
 
-const optimizelyRequest = async (endpoint, method, body = false) => {
+const optimizelyRequest = async (endpoint) => {
     const options = {
         method: 'GET',
         headers: {
@@ -59,7 +59,8 @@ const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
 }
 
 const checkChangeHistory = async (project_id, start_time, end_time) => {
-    const changeHistory = await optimizelyRequest(`https://api.optimizely.com/v2/changes?project_id=${project_id}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`)
+    const endpoint = `https://api.optimizely.com/v2/changes?project_id=${project_id}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`;
+    const changeHistory = await optimizelyRequest(endpoint);
     return changeHistory; 
 }
 
@@ -122,7 +123,8 @@ const checkTargeting = async (project_id, updatedExperiments) => {
     const keys = Object.keys(updatedExperiments);
 
     for (const key of keys) {
-        const foundExperiment = await optimizelyRequest(`https://api.optimizely.com/v2/experiments/${updatedExperiments[key].exp_id}`);
+        const endpoint = `https://api.optimizely.com/v2/experiments/${updatedExperiments[key].exp_id}`;
+        const foundExperiment = await optimizelyRequest(endpoint);
         let isRunningInQAMode;
         if (foundExperiment) {
 
@@ -137,11 +139,12 @@ const checkTargeting = async (project_id, updatedExperiments) => {
                 (!foundExperiment.audience_conditions.includes("and") && 
                 foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID))) {
                 
-                // check page targeting too
+                // check if targeting prod / lower env in page conditions
                 if (foundExperiment.page_ids.length) {
                     const page_id = foundExperiment.page_ids[0];
-                    const foundPage = await optimizelyRequest(`https://api.optimizely.com/v2/pages/${page_id}`);
-                    if (foundPage && foundPage.conditions && foundPage.conditions.includes("devtestp")) {
+                    const endpoint = `https://api.optimizely.com/v2/pages/${page_id}`;
+                    const foundPage = await optimizelyRequest(endpoint);
+                    if (foundPage && foundPage.conditions && foundPage.conditions.includes("devtest")) {
                         isRunningInQAMode = true;
                     } else {
                         isRunningInQAMode = false;
