@@ -302,7 +302,7 @@ const checkWebProjects = async () => {
 }
 
 const main = () => {
-    const oneHourInterval = 3600000;
+    const oneHourInterval = 30000;
     setInterval(() => {
         checkWebProjects();
     }, oneHourInterval);
