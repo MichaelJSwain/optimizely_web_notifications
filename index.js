@@ -123,9 +123,9 @@ const checkCustomGoals = (experiment) => {
 
 const checkTargeting = async (project_id, updatedExperiments) => {
     const launchedExperiments = [];
-    const keys = Object.keys(updatedExperiments);
+    const experimentKeys = Object.keys(updatedExperiments);
 
-    for (const key of keys) {
+    for (const key of experimentKeys) {
         const endpoint = `https://api.optimizely.com/v2/experiments/${updatedExperiments[key].exp_id}`;
         const foundExperiment = await optimizelyRequest(endpoint);
         let isRunningInQAMode;
@@ -138,9 +138,9 @@ const checkTargeting = async (project_id, updatedExperiments) => {
             updatedExperiments[key].hasCustomGoals = foundCustomGoals;
 
             isRunningInQAMode = false;
-            if (!foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
+            if (!foundExperiment.audience_conditions.includes(project_id == TH_QA_QA_AUDIENCE_ID ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID) || 
                 (!foundExperiment.audience_conditions.includes("and") && 
-                foundExperiment.audience_conditions.includes(project_id == 14193350179 ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID))) {
+                foundExperiment.audience_conditions.includes(project_id == TH_QA_QA_AUDIENCE_ID ? TH_QA_QA_AUDIENCE_ID : CK_QA_QA_AUDIENCE_ID))) {
                 
                 // check if targeting prod / lower env in page conditions
                 if (foundExperiment.page_ids.length) {
@@ -166,8 +166,6 @@ const checkTargeting = async (project_id, updatedExperiments) => {
 }
 
 const buildNotificationMessage = (experimentChanges, start_time, end_time) => {
-    let message = 'Update(s) to Optimizely Web (client-side) experiments:';
-    
     const startTimeParsed = `${new Date(start_time).toString().split("GMT")[0]} CET`;
     const endTimeParsed = `${new Date(end_time).toString().split("GMT")[0]} CET`;
 
@@ -281,9 +279,9 @@ const main = async () => {
                 const updatedExperiments = checkForUpdatedExperimentStatus(project_id, changeHistory);
                 
                 if (updatedExperiments) {
-                    const response = await checkTargeting(project_id, updatedExperiments);
-                    if (response.length) {
-                        result = [...result, ...response];
+                    const launchedExperiments = await checkTargeting(project_id, updatedExperiments);
+                    if (launchedExperiments.length) {
+                        result = [...result, ...launchedExperiments];
                     }
                 }
             } else {
