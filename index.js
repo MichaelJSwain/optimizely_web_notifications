@@ -1,7 +1,9 @@
 const { default: axios } = require("axios");
+const express = require("express");
+const app = express();
 const { response } = require("express");
 require('dotenv').config();
-const {OPTLY_TOKEN, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT} = process.env;
+const {OPTLY_TOKEN, PORT, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT} = process.env;
 
 const optimizelyRequest = async (endpoint) => {
     const options = {
@@ -301,10 +303,19 @@ const checkWebProjects = async () => {
     }
 }
 
-const main = () => {
-    const oneHourInterval = 30000;
-    setInterval(() => {
-        checkWebProjects();
-    }, oneHourInterval);
-}
-main();
+// const main = () => {
+//     const oneHourInterval = 30000;
+//     setInterval(() => {
+//         checkWebProjects();
+//     }, oneHourInterval);
+// }
+// main();
+
+app.get("/pvh/optimizelyWeb/notifications", (req, res) => {
+    console.log("request received from cron job");
+    checkWebProjects();
+});
+
+app.listen(PORT, (req, res) => {
+    console.log("app listening...");
+})
