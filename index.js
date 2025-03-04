@@ -41,6 +41,7 @@ const getProjectsIDs = () => {
 }
 
 const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
+    console.log(`⚙️ Checking if experiment status was changed... `);
     const experimentIDs = {};
 
     for (item of changeHistory) {
@@ -62,6 +63,7 @@ const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
 }
 
 const checkChangeHistory = async (project_id, start_time, end_time) => {
+    console.log(`⚙️ Checking project change history ${end_time}...`);
     const endpoint = `https://api.optimizely.com/v2/changes?project_id=${project_id}&start_time=${start_time}&end_time=${end_time}&per_page=25&page=1`;
     const changeHistory = await optimizelyRequest(endpoint);
     return changeHistory; 
@@ -122,6 +124,7 @@ const checkCustomGoals = (experiment) => {
 }
 
 const checkTargeting = async (project_id, updatedExperiments) => {
+    console.log(`⚙️ Checking if launched experiment / targets real users...`);
     const launchedExperiments = [];
     const experimentKeys = Object.keys(updatedExperiments);
 
@@ -259,10 +262,10 @@ const sendNotification = (message) => {
      };
      axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
     .then(function (response) {
-        console.log(response);
+        console.log(`✅ Notification successfully sent`);
     })
     .catch(function (error) {
-        console.log(error);
+        console.log(`⚠️ Unable to send notification: ${error.message}`);
     });
 }
 
@@ -285,16 +288,16 @@ const main = async () => {
                     }
                 }
             } else {
-                console.log("no changes made in the last hour");
+                console.log(`ℹ️ There were no important changes made to the project: ${project_id} between ${start_time} - ${end_time}`);
             }
         }
     }
     if (result.length) {
-        console.log("building notification message");
+        console.log("⚙️ Building notification message... ");
         notificationMessage = buildNotificationMessage(result, start_time, end_time);
         sendNotification(notificationMessage);
     } else {
-        console.log("no experiments in production")
+        console.log("ℹ️ No experiments in production")
     }
 }
 main();
