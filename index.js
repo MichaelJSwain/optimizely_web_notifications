@@ -49,7 +49,7 @@ const checkForUpdatedExperimentStatus = (project_id, changeHistory) => {
                         exp_id: item.entity.id,
                         exp_name: item.entity.name,
                         exp_status: change.after,
-                        project: project_id == 14193350179 ? "TH" : "CK"
+                        project: project_id == TH_QA_PROJECT_ID ? "TH" : "CK"
                     }
                 }
             }
@@ -253,7 +253,7 @@ const sendNotification = (message) => {
            }
         ]
      };
-     axios.post(TEAMS_CHANNEL_ENDPOINT, reqbody)
+     axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
     .then(function (response) {
         console.log(response);
     })
@@ -278,9 +278,6 @@ const main = async () => {
                 if (response.length) {
                     result = [...result, ...response];
                 }
-                // const notificationMessage = buildNotificationMessage(result, start_time, end_time);
-                // console.log(notificationMessage);
-                // sendNotification(notificationMessage);
             }
         } else {
             console.log("no changes made in the last hour");
@@ -289,10 +286,9 @@ const main = async () => {
     if (result.length) {
         console.log("building notification message");
         notificationMessage = buildNotificationMessage(result, start_time, end_time);
+        sendNotification(notificationMessage);
     } else {
         console.log("no experiments in production")
     }
-    
-    sendNotification(notificationMessage);
 }
 main();
