@@ -269,7 +269,7 @@ const sendNotification = (message) => {
     });
 }
 
-const main = async () => {
+const checkWebProjects = async () => {
     const {start_time, end_time} = getTimestamps();
     const project_ids = getProjectsIDs();
     let result = [];
@@ -299,5 +299,12 @@ const main = async () => {
     } else {
         console.log("ℹ️ No experiments in production")
     }
+}
+
+const main = () => {
+    const oneHourInterval = 3600000;
+    setInterval(() => {
+        checkWebProjects();
+    }, oneHourInterval);
 }
 main();
