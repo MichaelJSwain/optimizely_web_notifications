@@ -311,7 +311,7 @@ const checkWebProjects = async () => {
 // }
 // main();
 
-app.get("/pvh/optimizelyWeb/notifications", (req, res) => {
+app.post("/pvh/optimizelyWeb/notifications", (req, res) => {
     console.log("request received from cron job ");
     console.log("req object = ", req);
     console.log("req body = ", req.body);
