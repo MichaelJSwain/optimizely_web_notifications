@@ -303,20 +303,13 @@ const checkWebProjects = async () => {
     }
 }
 
-// const main = () => {
-//     const oneHourInterval = 30000;
-//     setInterval(() => {
-//         checkWebProjects();
-//     }, oneHourInterval);
-// }
-// main();
+app.get("/pvh/optimizelyWeb/wakeServer", (req, res) => {
+    return res.send("server awake");
+})
 
 app.post("/pvh/optimizelyWeb/notifications", (req, res) => {
-    console.log("request received from cron job ");
-    console.log("req object = ", req);
-    console.log("req body = ", req.body);
     checkWebProjects();
-    return res.send(200, { message: 'ok' });
+    return res.send("checking optimizely web projects");
 });
 
 app.listen(PORT, (req, res) => {
