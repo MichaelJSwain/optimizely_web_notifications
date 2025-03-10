@@ -316,6 +316,7 @@ app.get("/pvh/optimizelyWeb/notifications", (req, res) => {
     console.log("req object = ", req);
     console.log("req body = ", req.body);
     checkWebProjects();
+    return;
 });
 
 app.listen(PORT, (req, res) => {
