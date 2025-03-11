@@ -304,7 +304,6 @@ const checkWebProjects = async () => {
 }
 
 app.get("/pvh/optimizelyWeb/wakeServer", (req, res) => {
-    console.log("req headers = " ,req.headers)
     console.log("server is still awake");
     return res.json({ message: 'server is still awake' });
 })
