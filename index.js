@@ -305,13 +305,13 @@ const checkWebProjects = async () => {
 
 app.get("/pvh/optimizelyWeb/wakeServer", (req, res) => {
     console.log("server is still awake");
-    return res.send({"message":"server is still awake"});
+    return res.json({ message: 'server is still awake' });
 })
 
 app.post("/pvh/optimizelyWeb/notifications", (req, res) => {
     console.log("checking optimizely web projects");
     checkWebProjects();
-    return res.send({"message":"checking optimizely web projects"});
+    return res.json({ message: 'checking optimizely web projects' });
 });
 
 app.listen(PORT, (req, res) => {
