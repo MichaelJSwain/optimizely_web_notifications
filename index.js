@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 const { response } = require("express");
 require('dotenv').config();
-const {OPTLY_TOKEN, PORT, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT} = process.env;
+const {OPTLY_TOKEN, PORT, TH_QA_QA_AUDIENCE_ID, CK_QA_QA_AUDIENCE_ID, TH_QA_PROJECT_ID, CK_QA_PROJECT_ID, TEAMS_QA_CHANNEL_ENDPOINT, TEAMS_CHANNEL_ENDPOINT, CK_PROD_PROJECT_ID, TH_PROD_PROJECT_ID} = process.env;
 
 const optimizelyRequest = async (endpoint) => {
     const options = {
@@ -38,7 +38,7 @@ const getTimestamps = () => {
 }
 
 const getProjectsIDs = () => {
-    const projectIDs = [TH_QA_PROJECT_ID, CK_QA_PROJECT_ID]
+    const projectIDs = [CK_PROD_PROJECT_ID, TH_PROD_PROJECT_ID]
     return projectIDs;
 }
 
@@ -262,7 +262,7 @@ const sendNotification = (message) => {
            }
         ]
      };
-     axios.post(TEAMS_QA_CHANNEL_ENDPOINT, reqbody)
+     axios.post(TEAMS_CHANNEL_ENDPOINT, reqbody)
     .then(function (response) {
         console.log(`✅ Notification successfully sent`);
     })
@@ -304,6 +304,7 @@ const checkWebProjects = async () => {
 }
 
 app.get("/pvh/optimizelyWeb/wakeServer", (req, res) => {
+    console.log("req headers = " ,req.headers)
     console.log("server is still awake");
     return res.json({ message: 'server is still awake' });
 })
