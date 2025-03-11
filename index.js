@@ -304,10 +304,12 @@ const checkWebProjects = async () => {
 }
 
 app.get("/pvh/optimizelyWeb/wakeServer", (req, res) => {
+    console.log("server awake");
     return res.send("server awake");
 })
 
 app.post("/pvh/optimizelyWeb/notifications", (req, res) => {
+    console.log("checking optimizely web projects");
     checkWebProjects();
     return res.send("checking optimizely web projects");
 });
