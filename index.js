@@ -38,7 +38,7 @@ const getTimestamps = () => {
 }
 
 const getProjectsIDs = () => {
-    const projectIDs = [CK_PROD_PROJECT_ID, TH_PROD_PROJECT_ID]
+    const projectIDs = [CK_QA_PROJECT_ID, TH_QA_PROJECT_ID]
     return projectIDs;
 }
 
